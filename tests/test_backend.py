@@ -1051,5 +1051,24 @@ class BackendTests(Tf2OnnxBackendTestBase):
         kwargs = {"check_dtype": True}
         self._run_test_case([_OUTPUT], {_INPUT: x_val}, **kwargs)
 
+    def test_optimize_pad_conv(self):
+        params = [
+            ("CONSTANT", [[1, 1], [2, 2]], [[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]),
+            ("CONSTANT", [[0, 0], [3, 3], [3, 3], [0, 0]], np.random.randn(1, 3, 4, 5).astype(np.float32)),
+        ]
+        shape = [64,224,224,3]
+        kshape = [7, 7, 3, 64]
+        paddings = [[0, 0], [3, 3], [3, 3], [0, 0]]
+        x_val = np.random.random_sample(shape).astype(np.float32)
+        k_val = np.random.random_sample(kshape).astype(np.float32)
+        x = tf.placeholder(tf.float32, x_val.shape, name=_TFINPUT)
+        x_ = tf.pad(x, paddings, "CONSTANT")
+        x_ = tf.nn.conv2d(x_, tf.constant(k_val), strides=[1, 2, 2, 1], padding="VALID")
+        _ = tf.identity(x_)  # intentionally - we want none output after conv2d
+        _ = tf.identity(x_, name=_TFOUTPUT)
+        kwargs = {"optimize": True}
+        self._run_test_case([_OUTPUT], {_INPUT: x_val}, rtol=0.01, **kwargs)
+
+
 if __name__ == '__main__':
     Tf2OnnxBackendTestBase.trigger(BackendTests)

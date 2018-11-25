@@ -18,6 +18,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.ops import variables as variables_lib
 import tf2onnx.utils
+from tf2onnx.optimizer.transpose_optimizer import TransposeOptimizer
 from tf2onnx.tfonnx import process_tf_graph
 
 # pylint: disable=missing-docstring,invalid-name,unused-argument,using-constant-test
@@ -102,7 +103,7 @@ class Tf2OnnxBackendTestBase(unittest.TestCase):
     # only when transform_tf_graph is true, input_names_with_port is necessary.
     def run_test_case(self, feed_dict, input_names_with_port, output_names_with_port, rtol=1e-07,
                       convert_var_to_const=True, transform_tf_graph=True, check_value=True, check_shape=False,
-                      check_dtype=False, process_args=None, onnx_feed_dict=None):
+                      check_dtype=False, process_args=None, onnx_feed_dict=None, optimize=False):
         # optional - passed to process_tf_graph
         if process_args is None:
             process_args = {}
@@ -149,6 +150,10 @@ class Tf2OnnxBackendTestBase(unittest.TestCase):
         with tf.Session() as sess:
             g = process_tf_graph(sess.graph, opset=type(self).OPSET, output_names=output_names_with_port,
                                  **process_args)
+            if optimize:
+                optimizer = TransposeOptimizer(g, output_names_with_port, False)
+                optimizer.optimize()
+
             actual = self._run_backend(g, output_names_with_port, onnx_feed_dict)
 
         for expected_val, actual_val in zip(expected, actual):
